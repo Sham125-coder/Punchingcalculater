@@ -1,0 +1,93 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Punching Software (INR)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6 text-center">Employee Punching Software</h1>
+        <div class="mb-4">
+            <label for="salary" class="block text-sm font-medium text-gray-700">Monthly Salary (INR):</label>
+            <input type="number" id="salary" class="mt-1 p-2 w-full border rounded-md" placeholder="Enter monthly salary in INR" required>
+        </div>
+        <div class="mb-4">
+            <label for="lateTime" class="block text-sm font-medium text-gray-700">Late Time (minutes):</label>
+            <input type="number" id="lateTime" class="mt-1 p-2 w-full border rounded-md" placeholder="Enter late time in minutes" required>
+        </div>
+        <button onclick="calculateDeduction()" class="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600">Calculate Deduction</button>
+        <div id="result" class="mt-6 text-center"></div>
+    </div>
+
+    <script>
+        function calculateDeduction() {
+            const salary = parseFloat(document.getElementById('salary').value);
+            const lateTime = parseInt(document.getElementById('lateTime').value);
+            const resultDiv = document.getElementById('result');
+
+            if (isNaN(salary) || isNaN(lateTime) || salary < 0 || lateTime < 0) {
+                resultDiv.innerHTML = '<p class="text-red-500">Please enter valid salary and late time.</p>';
+                return;
+            }
+
+            // Standard working time: 540 minutes/day (9 hours), 30 days/month
+            const minutesPerDay = 540;
+            const workingDays = 30;
+            const totalWorkingMinutes = minutesPerDay * workingDays;
+            const hourlyRate = salary / (totalWorkingMinutes / 60); // Convert total minutes to hours
+            const lateHours = lateTime / 60;
+            const deduction = Math.round(lateHours * hourlyRate); // Round to nearest INR
+            const adjustedSalary = Math.round(salary - deduction); // Round to nearest INR
+
+            resultDiv.innerHTML = `
+                <p class="text-gray-700">Total Working Hours (Monthly): ${totalWorkingMinutes / 60} hours</p>
+                <p class="text-gray-700">Hourly Rate: ₹${hourlyRate.toFixed(2)}</p>
+                <p class="text-gray-700">Late Time: ${lateTime} minutes (${lateHours.toFixed(2)} hours)</p>
+                <p class="text-red-500 font-bold">Deduction: ₹${deduction}</p>
+                <p class="text-green-500 font-bold">Adjusted Salary: ₹${adjustedSalary}</p>
+            `;
+        }
+    </script>
+</body>
+</html>
